@@ -5,6 +5,62 @@ import Tubes.Config
 -- | Point in 2D space.
 type Point = (Float, Float)
 
+-- | Station ID is its index.
+type StationId = Int
+
+-- | A station.
+type Station = Point
+
+-- | A line with tracks and trains.
+data TubeLine = TubeLine
+  { tubeLineSegments  :: [Segment]    -- ^ Segments of which a line consists.
+  , tubeLineTrains    :: [Train]      -- ^ Trains on the line.
+  }
+
+-- | Create a new line with one new train.
+initTubeLine :: [Segment] -> TubeLine
+initTubeLine [] = TubeLine [] []
+initTubeLine segments@(s:_) = TubeLine segments [initTrain s]
+
+-- | Get a list of all stations on the line.
+tubeLineStations :: TubeLine -> [Station]
+tubeLineStations = segmentsToStations . tubeLineSegments
+  where
+    segmentsToStations [] = []
+    segmentsToStations (Segment s e : ss) = s : e : map segmentEnd ss
+
+-- | Update all trains on the line.
+-- Each train goes
+updateTubeLineTrains :: Float -> TubeLine -> TubeLine
+updateTubeLineTrains dtime tubeLine = tubeLine { tubeLineTrains = newTrains }
+  where
+    newTrains = map (updateTubeLineTrain dtime) (tubeLineTrains tubeLine)
+
+    updateTubeLineTrain dt train
+      = case moveTrain dt train of
+          (newTrain, Nothing) -> newTrain
+          (newTrain, Just leftoverTime) ->
+            let (from, to, segment) = nextSegment train
+            in updateTubeLineTrain leftoverTime (initTrain segment)
+                  { trainFrom = from
+                  , trainTo   = to
+                  }
+
+    nextSegment train
+      -- forward motion
+      | from < to && to < n = (to, to + 1, segments !! to)
+      | from < to           = (to, from, mirrorSegment segment)
+      -- backward motion
+      | from > to && to > 0 = (to, to - 1, mirrorSegment (segments !! (to - 1)))
+      | otherwise           = (to, from, segments !! to)
+      where
+        segment = trainSegment train
+        from    = trainFrom train
+        to      = trainTo train
+
+        segments = tubeLineSegments tubeLine
+        n = length segments
+
 -- | A segment is a straight track the connects two points.
 data Segment = Segment
   { segmentStart  :: Point    -- ^ Segment starting point.
@@ -18,11 +74,17 @@ segmentLength s = sqrt ((x1 - x2)^2 + (y1 - y2)^2)
     (x1, y1) = segmentStart s
     (x2, y2) = segmentEnd s
 
+-- | Switch start and end points of a segment.
+mirrorSegment :: Segment -> Segment
+mirrorSegment (Segment s e) = Segment e s
+
 -- | A train.
 data Train = Train
   { trainSegment      :: Segment      -- ^ Rail segment the train is on.
   , trainProgress     :: Float        -- ^ Time spent on this segment (in seconds).
   , trainLocation     :: Float        -- ^ Train location on the current segment (from start).
+  , trainFrom         :: StationId    -- ^ Station the train departed from recently.
+  , trainTo           :: StationId    -- ^ Station the train is headed to.
   }
 
 -- | Compute train location on a linear track
@@ -106,6 +168,8 @@ initTrain s = Train
   { trainSegment  = s
   , trainProgress = 0
   , trainLocation = 0
+  , trainFrom     = 0
+  , trainTo       = 1
   }
 
 -- | Compute actual train position.

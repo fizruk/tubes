@@ -13,18 +13,19 @@ main =
     bgColor = black
     fps     = 60
 
-    initialWorld = initTrain (Segment (-300, -150) (200, 180))
-    renderWorld = renderTrainSegment <> renderTrain
-    handleWorld _ w = w
+    initialWorld = initTubeLine [ Segment (150, -200) (-150, -200)
+                                , Segment (-150, -200) (-150, 200) ]
+
+    renderWorld = renderTubeLine
+
+    handleWorld (EventKey (MouseButton LeftButton) Down modifiers point) =
+      case shift modifiers of
+        Up    -> appendTubeLineSegment  point
+        Down  -> prependTubeLineSegment point
+    handleWorld _ = id
 
     -- move a single train along a straight track forwards and backwards
-    updateWorld dt train
-      = case moveTrain dt train of
-          (newTrain, Nothing) -> newTrain
-          (newTrain, Just leftover) -> updateWorld leftover (switchDirection newTrain)
-      where
-        switchDirection train = initTrain (switch (trainSegment train))
-        switch (Segment s e) = Segment e s
+    updateWorld = updateTubeLineTrains
 
     winSize = (800, 450)
     winOffset = (100, 100)

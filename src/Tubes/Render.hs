@@ -7,6 +7,24 @@ import Graphics.Gloss
 import Tubes.Config
 import Tubes.Model
 
+-- | Render tube line with tracks and trains.
+renderTubeLine :: TubeLine -> Picture
+renderTubeLine tubeLine
+  =   foldMap renderSegment (tubeLineSegments tubeLine)
+  <>  foldMap renderStation (tubeLineStations tubeLine)
+  <>  foldMap renderTrain   (tubeLineTrains tubeLine)
+
+-- | Render a regular station.
+renderStation :: Station -> Picture
+renderStation (x, y) = (outerCircle <> innerCircle)
+  & translate x y
+  where
+    r  = stationRadius
+    r' = 0.6 * r
+
+    outerCircle = thickCircle (r /2) r  & color stationColor
+    innerCircle = thickCircle (r'/2) r' & color black
+
 -- | Render a train.
 renderTrain :: Train -> Picture
 renderTrain train = renderLocomotive
@@ -39,7 +57,8 @@ renderSegment s = (polygon leftRail <> polygon rightRail)
   where
     (x, y) = segmentStart s
     theta  = segmentOrientation s
-    leftRail  = [ (0,  h/3), (0,  h), (w,  h), (w,  h/3) ]
-    rightRail = [ (0, -h/3), (0, -h), (w, -h), (w, -h/3) ]
+    leftRail  = [ (0,  r), (0,  h), (w,  h), (w,  r) ]
+    rightRail = [ (0, -r), (0, -h), (w, -h), (w, -r) ]
     w = segmentLength s
     h = trackWidth / 2
+    r = h - railWidth

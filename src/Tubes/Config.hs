@@ -12,16 +12,28 @@ trainMaxSpeed = 300
 
 -- | Train width (in pixels).
 trainWidth :: Float
-trainWidth = 15
+trainWidth = 20
 
 -- | Train length (in pixels).
 trainLength :: Float
-trainLength = 3 * trainWidth
+trainLength = 2.5 * trainWidth
 
 -- | Track width (in pixels).
 trackWidth :: Float
-trackWidth = 0.75 * trainWidth
+trackWidth = 0.5 * trainWidth
+
+-- | Single rail width.
+railWidth :: Float
+railWidth = 0.33 * trackWidth
 
 -- | Default track color.
 defaultTrackColor :: Color
-defaultTrackColor = greyN 0.5
+defaultTrackColor = greyN 0.7
+
+-- | Radius of a regular station.
+stationRadius :: Float
+stationRadius = 0.8 * trainWidth
+
+-- | Regular station color.
+stationColor :: Color
+stationColor = greyN 0.9
