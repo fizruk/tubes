@@ -7,12 +7,19 @@ import Graphics.Gloss
 import Tubes.Config
 import Tubes.Model
 
+-- | Render the whole tube system.
+renderTube :: Tube -> Picture
+renderTube
+  =   foldMap (foldMap renderSegment . tubeLineSegments) . tubeLines
+  <>  foldMap (foldMap renderStation . tubeLineStations) . tubeLines
+  <>  foldMap (foldMap renderTrain   . tubeLineTrains)   . tubeLines
+
 -- | Render tube line with tracks and trains.
 renderTubeLine :: TubeLine -> Picture
-renderTubeLine tubeLine
-  =   foldMap renderSegment (tubeLineSegments tubeLine)
-  <>  foldMap renderStation (tubeLineStations tubeLine)
-  <>  foldMap renderTrain   (tubeLineTrains tubeLine)
+renderTubeLine
+  =   foldMap renderSegment . tubeLineSegments
+  <>  foldMap renderStation . tubeLineStations
+  <>  foldMap renderTrain   . tubeLineTrains
 
 -- | Render a regular station.
 renderStation :: Station -> Picture
@@ -20,10 +27,13 @@ renderStation (x, y) = (outerCircle <> innerCircle)
   & translate x y
   where
     r  = stationRadius
-    r' = 0.6 * r
 
-    outerCircle = thickCircle (r /2) r  & color stationColor
-    innerCircle = thickCircle (r'/2) r' & color black
+    outerCircle = solidCircle r         & color stationColor
+    innerCircle = solidCircle (0.6 * r) & color black
+
+-- | Draw a solid circle of given radius.
+solidCircle :: Float -> Picture
+solidCircle r = thickCircle (r/2) r
 
 -- | Render a train.
 renderTrain :: Train -> Picture

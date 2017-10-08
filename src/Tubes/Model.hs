@@ -1,21 +1,102 @@
 module Tubes.Model where
 
+import Data.Maybe (listToMaybe)
+import Data.List (foldl')
+
 import Tubes.Config
 
 -- | Point in 2D space.
 type Point = (Float, Float)
 
--- | Station ID is its index.
+-- | Station ID.
 type StationId = Int
+
+-- | TubeLine ID.
+type TubeLineId = Int
 
 -- | A station.
 type Station = Point
+
+-- | Tube system consisting of multiple lines and stations.
+data Tube = Tube
+  { tubeLines     :: [TubeLine]   -- ^ Lines.
+  , tubeStations  :: [Station]    -- ^ Stations.
+  }
+
+-- | Initialise an empty tube.
+initTube :: Tube
+initTube = Tube [] []
+
+-- | Add a station to the system.
+addStation :: Station -> Tube -> Tube
+addStation s tube = tube { tubeStations = s : tubeStations tube }
+
+-- | Add a new tube line connecting two stations.
+addTubeLine :: Station -> Station -> Tube -> Tube
+addTubeLine s e tube = tube { tubeLines = initTubeLine [Segment s e] : tubeLines tube }
+
+-- | Get a list of IDs for 'Tube' lines which go through a given 'Station'.
+stationLines :: Station -> Tube -> [TubeLineId]
+stationLines station = map fst . filter f . zip [0..] . tubeLines
+  where
+    f (_, line) = any (nearStation station) (tubeLineStations line)
+
+-- | Update everything in a tube system with a given time interval.
+updateTube :: Float -> Tube -> Tube
+updateTube dt tube = tube
+  { tubeLines = map (updateTubeLineTrains dt) (tubeLines tube) }
+
+-- | 'Station' type relative to some 'TubeLine'.
+data TubeLineStationType
+  = TubeLineStartStation          -- ^ 'Station' is at the beginning of a 'TubeLine'.
+  | TubeLineEndStation            -- ^ 'Station' is at the end of a 'TubeLine'.
+  | TubeLineIntermediateStation   -- ^ 'Station' is somewhere between the ends of a 'TubeLine' (so it can't be continued from here).
+
+-- | Find an element satisfying predicate and
+-- return its indices from both ends of a list.
+--
+-- prop> fmap (\(i, j) -> i + j) (doubleIndexOf p xs) == length xs - 1
+--
+-- >>> doubleIndexOf (== 3) [1..10]
+-- Just (2, 7)
+-- >>> doubleIndexOf even [1, 3 .. 10]
+-- Nothing
+doubleIndexOf :: (a -> Bool) -> [a] -> Maybe (Int, Int)
+doubleIndexOf p = eitherToMaybe . foldl' f (Left (0, 0))
+  where
+    eitherToMaybe (Left _) = Nothing
+    eitherToMaybe (Right x) = Just x
+
+    f (Right (i, j)) _ = Right (i, j + 1)
+    f (Left (i, j)) x
+        | p x       = Right (i, j)
+        | otherwise = Left (i + 1, j)
+
+-- | Find out where on the line the station is.
+tubeLineStationType :: Station -> TubeLine -> Maybe TubeLineStationType
+tubeLineStationType station = fmap indicesToType . doubleIndexOf (nearStation station) . tubeLineStations
+  where
+    indicesToType (0, _)  = TubeLineStartStation
+    indicesToType (_, 0)  = TubeLineEndStation
+    indicesToType _       = TubeLineIntermediateStation
+
+-- | If a 'Point' belongs to a 'Station' of a tube system then return it.
+-- Otherwise return 'Nothing'.
+pointToStation :: Point -> Tube -> Maybe Station
+pointToStation point = listToMaybe . filter (nearStation point) . tubeStations
+
+-- | Check if a 'Point' is near the 'Station'.
+nearStation :: Point -> Station -> Bool
+nearStation (x, y) (sx, sy) = sqrt ((sx - x)^2 + (sy - y)^2) < stationRadius
 
 -- | A line with tracks and trains.
 data TubeLine = TubeLine
   { tubeLineSegments  :: [Segment]    -- ^ Segments of which a line consists.
   , tubeLineTrains    :: [Train]      -- ^ Trains on the line.
   }
+
+-- | Station index on a tube line.
+type StationIndex = Int
 
 -- | Create a new line with one new train.
 initTubeLine :: [Segment] -> TubeLine
@@ -28,6 +109,15 @@ tubeLineStations = segmentsToStations . tubeLineSegments
   where
     segmentsToStations [] = []
     segmentsToStations (Segment s e : ss) = s : e : map segmentEnd ss
+
+-- | Modify a single 'TubeLine' in a tube system.
+modifyTubeLine :: TubeLineId -> (TubeLine -> TubeLine) -> Tube -> Tube
+modifyTubeLine tubeLineId f tube = tube
+  { tubeLines = modifyAt tubeLineId f (tubeLines tube) }
+  where
+    modifyAt i f xs = case splitAt i xs of
+      (ys, z:zs) -> ys ++ f z : zs
+      _ -> xs
 
 -- | Update all trains on the line.
 -- Each train goes
@@ -83,8 +173,8 @@ data Train = Train
   { trainSegment      :: Segment      -- ^ Rail segment the train is on.
   , trainProgress     :: Float        -- ^ Time spent on this segment (in seconds).
   , trainLocation     :: Float        -- ^ Train location on the current segment (from start).
-  , trainFrom         :: StationId    -- ^ Station the train departed from recently.
-  , trainTo           :: StationId    -- ^ Station the train is headed to.
+  , trainFrom         :: StationIndex -- ^ Station the train departed from recently.
+  , trainTo           :: StationIndex -- ^ Station the train is headed to.
   }
 
 -- | Compute train location on a linear track

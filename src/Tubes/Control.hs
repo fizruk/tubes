@@ -1,6 +1,23 @@
 module Tubes.Control where
 
+import Data.List (nub)
+
 import Tubes.Model
+
+-- | Add a new segment to the tube.
+--
+-- If @from@ station is the end of some line, it is extended.
+--
+-- If any station (or both) does not exist, they are created.
+addSegment :: Station -> Station -> Tube -> Tube
+addSegment from to tube = newTube { tubeStations = nub (from : to : tubeStations tube) }
+  where
+    newTube = case stationLines from tube of
+      (i:_) -> case tubeLineStationType from (tubeLines tube !! i) of
+        Just TubeLineStartStation -> modifyTubeLine i (prependTubeLineSegment to) tube
+        Just TubeLineEndStation   -> modifyTubeLine i (appendTubeLineSegment to) tube
+        _ -> addTubeLine from to tube
+      _ -> addTubeLine from to tube
 
 -- | Append a new segment to the end of the line.
 appendTubeLineSegment :: Point -> TubeLine -> TubeLine
