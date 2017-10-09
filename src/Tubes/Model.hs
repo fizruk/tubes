@@ -22,13 +22,13 @@ type TubeLineId = Int
 -- | A passenger is a user of a tube system.
 data Passenger = Passenger
   { passengerDestination  :: Point  -- ^ Where is this passenger going.
-  }
+  } deriving (Show)
 
 -- | A station.
 data Station = Station
   { stationLocation       :: Point        -- ^ Location of the station.
   , stationPassengers     :: [Passenger]  -- ^ Passengers waiting for a train on this station.
-  }
+  } deriving (Show)
 
 -- | Tube system consisting of multiple lines and stations.
 data Tube = Tube
@@ -62,21 +62,21 @@ routes from to tube = concatMap (routes' [] from) (stationLines from tube)
 
           sameLineRoute =
             [ [ RouteDirection lineId dir to]
-            | Just dir <- [directionToStation from to line]
+            | dir <- directionsToStation from to line
             ]
 
           interchangeRoutes = concat
             [ map (RouteDirection lineId dir point :) nextRoutes
             | (newLineId, point) <- lineInterchanges lineId tube
             , newLineId `notElem` visited
-            , Just dir <- [directionToStation from point line]
+            , dir <- directionsToStation from point line
             , let nextRoutes = routes' (lineId : visited) point newLineId
             ]
 
 -- | Find a route with minimal interchanges (if exists).
 minimalInterchangeRoute :: Point -> Point -> Tube -> Maybe Route
 minimalInterchangeRoute from to tube
-  = minimumBy (compareRouteLength) (fmap Just (routes from to tube) ++ [Nothing])
+  = minimumBy (compareRouteLength) (fmap Just (traceShowId $ routes from to tube) ++ [Nothing])
   where
     compareRouteLength :: Maybe Route -> Maybe Route -> Ordering
     compareRouteLength (Just xs) (Just ys) = comparing length xs ys
@@ -85,13 +85,24 @@ minimalInterchangeRoute from to tube
     compareRouteLength _ Nothing = LT
 
 -- | Which way to go by train on a given line to get from one station to another.
-directionToStation :: Point -> Point -> TubeLine -> Maybe TubeLineDirection
-directionToStation from to tubeLine
-  = case filter (\p -> any (nearStation p) [from, to]) (tubeLineStations tubeLine) of
-      (x:y:_)
-        | nearStation x from -> Just Forward
-        | otherwise -> Just Backward
-      _ -> Nothing
+directionsToStation :: Point -> Point -> TubeLine -> [TubeLineDirection]
+directionsToStation from to tubeLine
+  = case dedup xs of
+      (x:y:z:_)
+        | nearStation x from -> [Forward, Backward]
+        | otherwise          -> [Backward, Forward]
+      [x, y]
+        | nearStation x from && nearStation y to -> [Forward]
+        | otherwise -> [Backward]
+      _ -> []
+  where
+    dedup (x:y:ys)
+      | x == y    = dedup (x:ys)
+      | otherwise = x : dedup (y:ys)
+    dedup ys = ys
+
+    xs = filter (\p -> any (nearStation p) [from, to]) (tubeLineStations tubeLine)
+
 
 handlePassenger :: Passenger -> Point -> Tube -> Maybe (TubeLineId, TubeLineDirection)
 handlePassenger passenger point tube
@@ -154,7 +165,7 @@ modifyTrainAt tubeLineId trainId f tube = tube
 -- | Add a station to the system at a given location.
 addStation :: Point -> Tube -> Tube
 addStation s tube
-  | isNewStation = tube { tubeStations = initStation s : tubeStations tube }
+  | isNewStation = tube { tubeStations = traceShowId (initStation s) : tubeStations tube }
   | otherwise = tube
   where
     isNewStation = not (any (nearStation s) (map stationLocation (tubeStations tube)))
@@ -295,7 +306,8 @@ updateTubeLineTrains dtime tubeLineId tubeLine = (events, tubeLine { tubeLineTra
           (newTrain, Nothing) -> (events, newTrain)
           (newTrain, Just leftoverTime) ->
             let (from, to, segment) = nextSegment train
-                Just dir = directionToStation (segmentStart segment) (segmentEnd segment) tubeLine
+                dir | from < to = Forward
+                    | otherwise = Backward
                 event = TrainStopEvent
                   { trainStopTrain      = i
                   , trainStopStation    = segmentStart segment
