@@ -8,7 +8,7 @@ import Tubes
 
 data GameState = GameState
   { gameTube        :: Tube
-  , gameStationFrom :: Maybe Station
+  , gameStationFrom :: Maybe (Float, Float)
   }
 
 {-setStationFrom :: Point -> GameState -> GameState-}
@@ -24,6 +24,16 @@ constructTube point gs = gs
   }
   where
     to = fromMaybe point (pointToStation point (gameTube gs))
+
+newPassenger :: GameState -> GameState
+newPassenger gs
+  | null stations = gs
+  | otherwise = gs { gameTube = spawnPassenger from to tube }
+  where
+    tube = gameTube gs
+    stations = tubeStations tube
+    from = stationLocation (head stations)
+    to   = stationLocation (last stations)
 
 main :: IO ()
 main =
@@ -42,6 +52,7 @@ main =
 
     handleWorld (EventKey (MouseButton LeftButton) Down _ point) = setStationFrom point
     handleWorld (EventKey (MouseButton LeftButton) Up _ point) = constructTube point
+    handleWorld (EventKey (SpecialKey KeySpace) Down _ _) = newPassenger
     handleWorld _ = id
 
     -- move a single train along a straight track forwards and backwards

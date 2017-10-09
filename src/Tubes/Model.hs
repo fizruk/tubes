@@ -1,9 +1,14 @@
+{-# LANGUAGE RecordWildCards #-}
 module Tubes.Model where
 
+import Data.Function ((&))
+import Data.List (foldl', minimumBy, partition, find)
 import Data.Maybe (listToMaybe)
-import Data.List (foldl')
+import Data.Ord (comparing)
 
 import Tubes.Config
+
+import Debug.Trace
 
 -- | Point in 2D space.
 type Point = (Float, Float)
@@ -14,8 +19,16 @@ type StationId = Int
 -- | TubeLine ID.
 type TubeLineId = Int
 
+-- | A passenger is a user of a tube system.
+data Passenger = Passenger
+  { passengerDestination  :: Point  -- ^ Where is this passenger going.
+  }
+
 -- | A station.
-type Station = Point
+data Station = Station
+  { stationLocation       :: Point        -- ^ Location of the station.
+  , stationPassengers     :: [Passenger]  -- ^ Passengers waiting for a train on this station.
+  }
 
 -- | Tube system consisting of multiple lines and stations.
 data Tube = Tube
@@ -23,28 +36,171 @@ data Tube = Tube
   , tubeStations  :: [Station]    -- ^ Stations.
   }
 
+data TubeLineDirection
+  = Forward
+  | Backward
+  deriving (Eq, Show)
+
+data RouteDirection = RouteDirection
+  { routeTubeLineId :: TubeLineId
+  , routeDirection  :: TubeLineDirection
+  , routeTo         :: Point
+  } deriving (Show)
+
+type Route = [RouteDirection]
+
+-- | All possible routes from one point to another.
+routes :: Point -> Point -> Tube -> [Route]
+routes from to tube = concatMap (routes' [] from) (stationLines from tube)
+  where
+    routes' :: [TubeLineId] -> Point -> TubeLineId -> [Route]
+    routes' visited from lineId
+      | nearStation from to = pure []
+      | otherwise = sameLineRoute ++ interchangeRoutes
+        where
+          line = tubeLines tube !! lineId
+
+          sameLineRoute =
+            [ [ RouteDirection lineId dir to]
+            | Just dir <- [directionToStation from to line]
+            ]
+
+          interchangeRoutes = concat
+            [ map (RouteDirection lineId dir point :) nextRoutes
+            | (newLineId, point) <- lineInterchanges lineId tube
+            , newLineId `notElem` visited
+            , Just dir <- [directionToStation from point line]
+            , let nextRoutes = routes' (lineId : visited) point newLineId
+            ]
+
+-- | Find a route with minimal interchanges (if exists).
+minimalInterchangeRoute :: Point -> Point -> Tube -> Maybe Route
+minimalInterchangeRoute from to tube
+  = minimumBy (compareRouteLength) (fmap Just (routes from to tube) ++ [Nothing])
+  where
+    compareRouteLength :: Maybe Route -> Maybe Route -> Ordering
+    compareRouteLength (Just xs) (Just ys) = comparing length xs ys
+    compareRouteLength Nothing Nothing = EQ
+    compareRouteLength Nothing _ = GT
+    compareRouteLength _ Nothing = LT
+
+-- | Which way to go by train on a given line to get from one station to another.
+directionToStation :: Point -> Point -> TubeLine -> Maybe TubeLineDirection
+directionToStation from to tubeLine
+  = case filter (\p -> any (nearStation p) [from, to]) (tubeLineStations tubeLine) of
+      (x:y:_)
+        | nearStation x from -> Just Forward
+        | otherwise -> Just Backward
+      _ -> Nothing
+
+handlePassenger :: Passenger -> Point -> Tube -> Maybe (TubeLineId, TubeLineDirection)
+handlePassenger passenger point tube
+  = case minimalInterchangeRoute point (passengerDestination passenger) tube of
+      Just (RouteDirection lineId dir _ : _) -> Just (lineId, dir)
+      _ -> Nothing
+
+updatePassengersAt :: Station -> Train -> TubeLineId -> TubeLineDirection -> Tube -> (Station, Train)
+updatePassengersAt station train lineId dir tube = (newStation, newTrain)
+  where
+    newStation = station { stationPassengers = stayingOnStation ++ unboarding }
+    newTrain = train { trainPassengers = stayingOnTrain ++ boarding }
+
+    (unboarding, stayingOnTrain) = stayingLeavingPassengers (trainPassengers train)
+    (stayingOnStation, boarding) = stayingLeavingPassengers (stationPassengers station)
+
+    stayingLeavingPassengers passengers = both (map fst) $ partition snd
+      [ (passenger, unboard)
+      | passenger <- passengers
+      , not (nearStation (passengerDestination passenger) (stationLocation station))
+      , let action = handlePassenger passenger (stationLocation station) tube
+      , let unboard = case action of
+              Just (pLineId, pdir)
+                | pLineId == lineId && pdir == dir -> False
+                | otherwise -> True -- unboard when passenger needs to change line or direction here
+              _ -> True
+      ]
+
+    both f (x, y) = (f x, f y)
+
 -- | Initialise an empty tube.
 initTube :: Tube
 initTube = Tube [] []
 
--- | Add a station to the system.
-addStation :: Station -> Tube -> Tube
-addStation s tube = tube { tubeStations = s : tubeStations tube }
+-- | Initialise a station at a given location.
+initStation :: Point -> Station
+initStation point = Station
+  { stationLocation   = point
+  , stationPassengers = []
+  }
+
+spawnPassenger :: Point -> Point -> Tube -> Tube
+spawnPassenger from to tube = modifyStationAt from addPassenger tube
+  where
+    addPassenger station = station { stationPassengers = Passenger to : stationPassengers station }
+
+modifyStationAt :: Point -> (Station -> Station) -> Tube -> Tube
+modifyStationAt point f tube = tube { tubeStations = map g (tubeStations tube) }
+  where
+    g station
+      | nearStation point (stationLocation station) = f station
+      | otherwise = station
+
+modifyTrainAt :: TubeLineId -> Int -> (Train -> Train) -> Tube -> Tube
+modifyTrainAt tubeLineId trainId f tube = tube
+  & modifyTubeLine tubeLineId g
+  where
+    g line = line { tubeLineTrains = modifyAt trainId f (tubeLineTrains line) }
+
+-- | Add a station to the system at a given location.
+addStation :: Point -> Tube -> Tube
+addStation s tube
+  | isNewStation = tube { tubeStations = initStation s : tubeStations tube }
+  | otherwise = tube
+  where
+    isNewStation = not (any (nearStation s) (map stationLocation (tubeStations tube)))
 
 -- | Add a new tube line connecting two stations.
-addTubeLine :: Station -> Station -> Tube -> Tube
+addTubeLine :: Point -> Point -> Tube -> Tube
 addTubeLine s e tube = tube { tubeLines = initTubeLine [Segment s e] : tubeLines tube }
 
--- | Get a list of IDs for 'Tube' lines which go through a given 'Station'.
-stationLines :: Station -> Tube -> [TubeLineId]
+-- | Get a list of IDs for 'Tube' lines which go through and stop at a given location.
+stationLines :: Point -> Tube -> [TubeLineId]
 stationLines station = map fst . filter f . zip [0..] . tubeLines
   where
     f (_, line) = any (nearStation station) (tubeLineStations line)
 
+lineInterchanges :: TubeLineId -> Tube -> [(TubeLineId, Point)]
+lineInterchanges tubeLineId tube =
+  [ (newLineId, point)
+  | point <- tubeLineStations (tubeLines tube !! tubeLineId)
+  , newLineId <- stationLines point tube
+  , newLineId /= tubeLineId
+  ]
+
 -- | Update everything in a tube system with a given time interval.
 updateTube :: Float -> Tube -> Tube
-updateTube dt tube = tube
-  { tubeLines = map (updateTubeLineTrains dt) (tubeLines tube) }
+updateTube dt tube = tube { tubeLines = newLines }
+  & handleEvents events
+  where
+    (events, newLines) = sequenceA (zipWith (updateTubeLineTrains dt) [0..] (tubeLines tube))
+
+handleEvents :: [TrainStopEvent] -> Tube -> Tube
+handleEvents events tube = foldr handleEvent tube events
+
+handleEvent :: TrainStopEvent -> Tube -> Tube
+handleEvent TrainStopEvent{..} tube = tube
+  & modifyStationAt trainStopStation (const newStation)
+  & modifyTrainAt trainStopTubeLine trainStopTrain (const newTrain)
+  where
+    Just station = getStationAt trainStopStation tube
+    train = getTrainAt trainStopTubeLine trainStopTrain tube
+    (newStation, newTrain) = updatePassengersAt station train trainStopTubeLine trainStopDirection tube
+
+getStationAt :: Point -> Tube -> Maybe Station
+getStationAt point = find (nearStation point . stationLocation) . tubeStations
+
+getTrainAt :: TubeLineId -> Int -> Tube -> Train
+getTrainAt lineId trainId = (!! trainId) . tubeLineTrains . (!! lineId) . tubeLines
 
 -- | 'Station' type relative to some 'TubeLine'.
 data TubeLineStationType
@@ -73,7 +229,7 @@ doubleIndexOf p = eitherToMaybe . foldl' f (Left (0, 0))
         | otherwise = Left (i + 1, j)
 
 -- | Find out where on the line the station is.
-tubeLineStationType :: Station -> TubeLine -> Maybe TubeLineStationType
+tubeLineStationType :: Point -> TubeLine -> Maybe TubeLineStationType
 tubeLineStationType station = fmap indicesToType . doubleIndexOf (nearStation station) . tubeLineStations
   where
     indicesToType (0, _)  = TubeLineStartStation
@@ -82,11 +238,11 @@ tubeLineStationType station = fmap indicesToType . doubleIndexOf (nearStation st
 
 -- | If a 'Point' belongs to a 'Station' of a tube system then return it.
 -- Otherwise return 'Nothing'.
-pointToStation :: Point -> Tube -> Maybe Station
-pointToStation point = listToMaybe . filter (nearStation point) . tubeStations
+pointToStation :: Point -> Tube -> Maybe Point
+pointToStation point = listToMaybe . filter (nearStation point) . map stationLocation . tubeStations
 
 -- | Check if a 'Point' is near the 'Station'.
-nearStation :: Point -> Station -> Bool
+nearStation :: Point -> Point -> Bool
 nearStation (x, y) (sx, sy) = sqrt ((sx - x)^2 + (sy - y)^2) < stationRadius
 
 -- | A line with tracks and trains.
@@ -104,7 +260,7 @@ initTubeLine [] = TubeLine [] []
 initTubeLine segments@(s:_) = TubeLine segments [initTrain s]
 
 -- | Get a list of all stations on the line.
-tubeLineStations :: TubeLine -> [Station]
+tubeLineStations :: TubeLine -> [Point]
 tubeLineStations = segmentsToStations . tubeLineSegments
   where
     segmentsToStations [] = []
@@ -114,26 +270,44 @@ tubeLineStations = segmentsToStations . tubeLineSegments
 modifyTubeLine :: TubeLineId -> (TubeLine -> TubeLine) -> Tube -> Tube
 modifyTubeLine tubeLineId f tube = tube
   { tubeLines = modifyAt tubeLineId f (tubeLines tube) }
-  where
-    modifyAt i f xs = case splitAt i xs of
-      (ys, z:zs) -> ys ++ f z : zs
-      _ -> xs
+
+modifyAt :: Int -> (a -> a) -> [a] -> [a]
+modifyAt i f xs = case splitAt i xs of
+  (ys, z:zs) -> ys ++ f z : zs
+  _ -> xs
+
+data TrainStopEvent = TrainStopEvent
+  { trainStopTrain      :: Int -- TrainIndex
+  , trainStopStation    :: Point
+  , trainStopTubeLine   :: TubeLineId
+  , trainStopDirection  :: TubeLineDirection
+  }
 
 -- | Update all trains on the line.
 -- Each train goes
-updateTubeLineTrains :: Float -> TubeLine -> TubeLine
-updateTubeLineTrains dtime tubeLine = tubeLine { tubeLineTrains = newTrains }
+updateTubeLineTrains :: Float -> TubeLineId -> TubeLine -> ([TrainStopEvent], TubeLine)
+updateTubeLineTrains dtime tubeLineId tubeLine = (events, tubeLine { tubeLineTrains = newTrains })
   where
-    newTrains = map (updateTubeLineTrain dtime) (tubeLineTrains tubeLine)
+    (events, newTrains) = sequenceA (zipWith (updateTubeLineTrain [] dtime) [0..] (tubeLineTrains tubeLine))
 
-    updateTubeLineTrain dt train
+    updateTubeLineTrain events dt i train
       = case moveTrain dt train of
-          (newTrain, Nothing) -> newTrain
+          (newTrain, Nothing) -> (events, newTrain)
           (newTrain, Just leftoverTime) ->
             let (from, to, segment) = nextSegment train
-            in updateTubeLineTrain leftoverTime (initTrain segment)
-                  { trainFrom = from
-                  , trainTo   = to
+                Just dir = directionToStation (segmentStart segment) (segmentEnd segment) tubeLine
+                event = TrainStopEvent
+                  { trainStopTrain      = i
+                  , trainStopStation    = segmentStart segment
+                  , trainStopTubeLine   = tubeLineId
+                  , trainStopDirection  = dir
+                  }
+            in updateTubeLineTrain (event : events) leftoverTime i train
+                  { trainFrom     = from
+                  , trainTo       = to
+                  , trainSegment  = segment
+                  , trainProgress = 0
+                  , trainLocation = 0
                   }
 
     nextSegment train
@@ -175,6 +349,7 @@ data Train = Train
   , trainLocation     :: Float        -- ^ Train location on the current segment (from start).
   , trainFrom         :: StationIndex -- ^ Station the train departed from recently.
   , trainTo           :: StationIndex -- ^ Station the train is headed to.
+  , trainPassengers   :: [Passenger]  -- ^ A list of passengers on board of a train.
   }
 
 -- | Compute train location on a linear track
@@ -255,11 +430,12 @@ moveTrain dt train = (newTrain, leftover)
 -- | Initialise a train at the start of a segment.
 initTrain :: Segment -> Train
 initTrain s = Train
-  { trainSegment  = s
-  , trainProgress = 0
-  , trainLocation = 0
-  , trainFrom     = 0
-  , trainTo       = 1
+  { trainSegment    = s
+  , trainProgress   = 0
+  , trainLocation   = 0
+  , trainFrom       = 0
+  , trainTo         = 1
+  , trainPassengers = []
   }
 
 -- | Compute actual train position.

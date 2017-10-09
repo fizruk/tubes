@@ -11,25 +11,30 @@ import Tubes.Model
 renderTube :: Tube -> Picture
 renderTube
   =   foldMap (foldMap renderSegment . tubeLineSegments) . tubeLines
-  <>  foldMap (foldMap renderStation . tubeLineStations) . tubeLines
+  <>  foldMap renderStation . tubeStations
   <>  foldMap (foldMap renderTrain   . tubeLineTrains)   . tubeLines
-
--- | Render tube line with tracks and trains.
-renderTubeLine :: TubeLine -> Picture
-renderTubeLine
-  =   foldMap renderSegment . tubeLineSegments
-  <>  foldMap renderStation . tubeLineStations
-  <>  foldMap renderTrain   . tubeLineTrains
 
 -- | Render a regular station.
 renderStation :: Station -> Picture
-renderStation (x, y) = (outerCircle <> innerCircle)
+renderStation station = (outerCircle <> innerCircle <> passengers)
   & translate x y
   where
+    (x, y) = stationLocation station
+    passengers = mconcat (zipWith renderStationPassenger (stationPassengers station) [0..])
+
     r  = stationRadius
 
     outerCircle = solidCircle r         & color stationColor
     innerCircle = solidCircle (0.6 * r) & color black
+
+renderPassenger :: Passenger -> Picture
+renderPassenger _ = solidCircle passengerRadius
+  & color passengerColor
+
+renderStationPassenger :: Passenger -> Int -> Picture
+renderStationPassenger p n = renderPassenger p
+  & translate 0 (stationRadius + 2 * passengerRadius)
+  & rotate (360 * fromIntegral n / fromIntegral stationCapacity)
 
 -- | Draw a solid circle of given radius.
 solidCircle :: Float -> Picture
@@ -37,13 +42,31 @@ solidCircle r = thickCircle (r/2) r
 
 -- | Render a train.
 renderTrain :: Train -> Picture
-renderTrain train = renderLocomotive
+renderTrain train = (renderLocomotive <> renderTrainPassengers (trainPassengers train))
   & rotate (- theta * 180 / pi)
   & translate x y
   & color red
   where
     (x, y) = trainPosition train
     theta  = trainOrientation train
+
+renderTrainPassengers :: [Passenger] -> Picture
+renderTrainPassengers = mconcat . zipWith renderTrainPassenger coords
+  where
+    renderTrainPassenger (i, j) p = renderPassenger p
+      & translate (fromIntegral i * di - w/2) (fromIntegral j * dj - h/2)
+
+    w = trainLength
+    h = trainWidth
+
+    di = w / fromIntegral (trainRows + 1)
+    dj = h / fromIntegral (trainRowSeats + 1)
+
+    coords =
+      [ (i, j)
+      | i <- [1..trainRows]
+      , j <- [1..trainRowSeats]
+      ]
 
 -- | Render train's locomotive.
 renderLocomotive :: Picture

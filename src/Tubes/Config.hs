@@ -37,3 +37,18 @@ stationRadius = 0.8 * trainWidth
 -- | Regular station color.
 stationColor :: Color
 stationColor = greyN 0.9
+
+stationCapacity :: Int
+stationCapacity = 12
+
+passengerRadius :: Float
+passengerRadius = stationRadius / 5
+
+passengerColor :: Color
+passengerColor = stationColor
+
+trainRows :: Int
+trainRows = 4
+
+trainRowSeats :: Int
+trainRowSeats = 2

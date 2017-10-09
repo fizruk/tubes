@@ -1,5 +1,6 @@
 module Tubes.Control where
 
+import Data.Function ((&))
 import Data.List (nub)
 
 import Tubes.Model
@@ -9,8 +10,12 @@ import Tubes.Model
 -- If @from@ station is the end of some line, it is extended.
 --
 -- If any station (or both) does not exist, they are created.
-addSegment :: Station -> Station -> Tube -> Tube
-addSegment from to tube = newTube { tubeStations = nub (from : to : tubeStations tube) }
+addSegment :: Point -> Point -> Tube -> Tube
+addSegment from to tube
+  | nearStation from to = tube
+  | otherwise = newTube
+      & addStation from
+      & addStation to
   where
     newTube = case stationLines from tube of
       (i:_) -> case tubeLineStationType from (tubeLines tube !! i) of
