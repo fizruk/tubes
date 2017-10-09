@@ -170,7 +170,11 @@ addStation s tube
 
 -- | Add a new tube line connecting two stations.
 addTubeLine :: Point -> Point -> Tube -> Tube
-addTubeLine s e tube = tube { tubeLines = initTubeLine [Segment s e] : tubeLines tube }
+addTubeLine = addTubeLineWith id
+
+-- | Add a new tube line connecting two stations.
+addTubeLineWith :: (TubeLine -> TubeLine) -> Point -> Point -> Tube -> Tube
+addTubeLineWith f s e tube = tube { tubeLines = f (initTubeLine [Segment s e]) : tubeLines tube }
 
 -- | Get a list of IDs for 'Tube' lines which go through and stop at a given location.
 stationLines :: Point -> Tube -> [TubeLineId]
@@ -210,6 +214,11 @@ getStationAt point = find (nearStation point . stationLocation) . tubeStations
 
 getTrainAt :: TubeLineId -> Int -> Tube -> Train
 getTrainAt lineId trainId = (!! trainId) . tubeLineTrains . (!! lineId) . tubeLines
+
+addTrain :: TubeLine -> TubeLine
+addTrain tubeLine = case tubeLineSegments tubeLine of
+  (segment:_) -> tubeLine { tubeLineTrains = initTrain segment : tubeLineTrains tubeLine }
+  _ -> tubeLine
 
 -- | 'Station' type relative to some 'TubeLine'.
 data TubeLineStationType
