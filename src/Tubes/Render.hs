@@ -48,7 +48,9 @@ renderTrain train = (renderLocomotive <> renderTrainPassengers (trainPassengers 
   & color red
   where
     (x, y) = trainPosition train
-    theta  = trainOrientation train
+    theta = case trainDirection train of
+      Forward  -> trainOrientation train
+      Backward -> trainOrientation train + pi
 
 renderTrainPassengers :: [Passenger] -> Picture
 renderTrainPassengers = mconcat . zipWith renderTrainPassenger coords
@@ -70,10 +72,12 @@ renderTrainPassengers = mconcat . zipWith renderTrainPassenger coords
 
 -- | Render train's locomotive.
 renderLocomotive :: Picture
-renderLocomotive = polygon vertices
+renderLocomotive = (polygon vertices <> front <> back)
   & scale 0.5 0.5
   where
-    vertices = [ (-w, -h), (-w, h), (w, h), (w + h, 0), (w, -h) ]
+    vertices = [ (-w, -h), (-w, h), (w, h), (w, -h) ]
+    front = solidCircle h & translate w 0
+    back  = solidCircle h & translate (-w) 0
     h = trainWidth
     w = trainLength
 

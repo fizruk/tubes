@@ -8,8 +8,6 @@ import Data.Ord (comparing)
 
 import Tubes.Config
 
-import Debug.Trace
-
 -- | Point in 2D space.
 type Point = (Float, Float)
 
@@ -76,7 +74,7 @@ routes from to tube = concatMap (routes' [] from) (stationLines from tube)
 -- | Find a route with minimal interchanges (if exists).
 minimalInterchangeRoute :: Point -> Point -> Tube -> Maybe Route
 minimalInterchangeRoute from to tube
-  = minimumBy (compareRouteLength) (fmap Just (traceShowId $ routes from to tube) ++ [Nothing])
+  = minimumBy (compareRouteLength) (fmap Just (routes from to tube) ++ [Nothing])
   where
     compareRouteLength :: Maybe Route -> Maybe Route -> Ordering
     compareRouteLength (Just xs) (Just ys) = comparing length xs ys
@@ -165,7 +163,7 @@ modifyTrainAt tubeLineId trainId f tube = tube
 -- | Add a station to the system at a given location.
 addStation :: Point -> Tube -> Tube
 addStation s tube
-  | isNewStation = tube { tubeStations = traceShowId (initStation s) : tubeStations tube }
+  | isNewStation = tube { tubeStations = initStation s : tubeStations tube }
   | otherwise = tube
   where
     isNewStation = not (any (nearStation s) (map stationLocation (tubeStations tube)))
@@ -457,6 +455,11 @@ trainPosition train = (sx + p * (ex - sx), sy + p * (ey - sy))
     (sx, sy) = segmentStart (trainSegment train)
     (ex, ey) = segmentEnd   (trainSegment train)
     p = trainLocation train / segmentLength (trainSegment train)
+
+trainDirection :: Train -> TubeLineDirection
+trainDirection train
+  | trainFrom train < trainTo train = Forward
+  | otherwise                       = Backward
 
 -- | Compute train orientation (angle in radians).
 trainOrientation :: Train -> Float
