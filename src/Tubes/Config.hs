@@ -12,7 +12,7 @@ trainMaxSpeed = 5 * trainLength
 
 -- | Train width (in pixels).
 trainWidth :: Float
-trainWidth = 30
+trainWidth = 40
 
 -- | Train length (in pixels).
 trainLength :: Float
@@ -25,6 +25,9 @@ trackWidth = 0.5 * trainWidth
 -- | Single rail width.
 railWidth :: Float
 railWidth = 0.4 * trackWidth
+
+endTrackLength :: Float
+endTrackLength = 2 * stationRadius
 
 -- | Default track color.
 defaultTrackColor :: Color
@@ -52,7 +55,7 @@ passengerColor = stationColor
 
 -- | Number of seat rows on a train.
 trainRows :: Int
-trainRows = 3
+trainRows = 4
 
 -- | Number of seats in a single row in a train.
 trainRowSeats :: Int
