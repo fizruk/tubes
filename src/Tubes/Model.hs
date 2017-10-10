@@ -176,7 +176,7 @@ addTubeLine = addTubeLineWith id
 
 -- | Add a new tube line connecting two stations.
 addTubeLineWith :: (TubeLine -> TubeLine) -> Point -> Point -> Tube -> Tube
-addTubeLineWith f s e tube = tube { tubeLines = f (initTubeLine [Segment s e]) : tubeLines tube }
+addTubeLineWith f s e tube = tube { tubeLines = tubeLines tube ++ [f (initTubeLine [Segment s e])] }
 
 -- | Get a list of IDs for 'Tube' lines which go through and stop at a given location.
 stationLines :: Point -> Tube -> [TubeLineId]

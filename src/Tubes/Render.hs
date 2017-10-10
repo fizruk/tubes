@@ -10,9 +10,18 @@ import Tubes.Model
 -- | Render the whole tube system.
 renderTube :: Tube -> Picture
 renderTube
-  =   foldMap (foldMap renderSegment . tubeLineSegments) . tubeLines
+  =   renderTubeLines . tubeLines
   <>  foldMap renderStation . tubeStations
-  <>  foldMap (foldMap renderTrain   . tubeLineTrains)   . tubeLines
+  <>  renderTrains . map tubeLineTrains . tubeLines
+
+renderTubeLines :: [TubeLine] -> Picture
+renderTubeLines = mconcat . zipWith renderTubeLine lineColors
+
+renderTubeLine :: Color -> TubeLine -> Picture
+renderTubeLine lineColor = foldMap (renderSegment lineColor) . tubeLineSegments
+
+renderTrains :: [[Train]] -> Picture
+renderTrains = mconcat . zipWith (foldMap . renderTrain) lineColors
 
 -- | Render a regular station.
 renderStation :: Station -> Picture
@@ -41,11 +50,11 @@ solidCircle :: Float -> Picture
 solidCircle r = thickCircle (r/2) r
 
 -- | Render a train.
-renderTrain :: Train -> Picture
-renderTrain train = (renderLocomotive <> renderTrainPassengers (trainPassengers train))
+renderTrain :: Color -> Train -> Picture
+renderTrain trainColor train = (renderLocomotive <> renderTrainPassengers (trainPassengers train))
   & rotate (- theta * 180 / pi)
   & translate x y
-  & color red
+  & color trainColor
   where
     (x, y) = trainPosition train
     theta = case trainDirection train of
@@ -81,16 +90,12 @@ renderLocomotive = (polygon vertices <> front <> back)
     h = trainWidth
     w = trainLength
 
--- | Render the segment train is currently running along.
-renderTrainSegment :: Train -> Picture
-renderTrainSegment = renderSegment . trainSegment
-
 -- | Render tracks for a segment.
-renderSegment :: Segment -> Picture
-renderSegment s = (polygon leftRail <> polygon rightRail)
+renderSegment :: Color -> Segment -> Picture
+renderSegment segmentColor s = (polygon leftRail <> polygon rightRail)
   & rotate (- theta * 180 / pi)
   & translate x y
-  & color defaultTrackColor
+  & color segmentColor
   where
     (x, y) = segmentStart s
     theta  = segmentOrientation s

@@ -62,3 +62,7 @@ trainRowSeats = 2
 trainCapacity :: Int
 trainCapacity = trainRows * trainRowSeats
 
+-- | An infinite list of different colors for different lines.
+lineColors :: [Color]
+lineColors = concat $
+  iterate (map dark) [red, green, blue, orange, magenta, greyN 0.7]
