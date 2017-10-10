@@ -29,17 +29,13 @@ railWidth = 0.4 * trackWidth
 endTrackLength :: Float
 endTrackLength = 2 * stationRadius
 
--- | Default track color.
-defaultTrackColor :: Color
-defaultTrackColor = greyN 0.7
-
 -- | Radius of a regular station.
 stationRadius :: Float
 stationRadius = 0.8 * trainWidth
 
 -- | Regular station color.
 stationColor :: Color
-stationColor = greyN 0.9
+stationColor = greyN 0.7
 
 -- | Station maximum capacity (how many passengers can fit on a station).
 stationCapacity :: Int
@@ -67,5 +63,8 @@ trainCapacity = trainRows * trainRowSeats
 
 -- | An infinite list of different colors for different lines.
 lineColors :: [Color]
-lineColors = concat $
-  iterate (map dark) [red, green, blue, orange, magenta, greyN 0.7]
+lineColors = concat $ drop 1 $
+  iterate (map dark) [red, green, blue, yellow, cyan, magenta, orange, white]
+
+backgroundColor :: Color
+backgroundColor = greyN 0.05

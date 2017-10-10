@@ -51,15 +51,15 @@ renderStation station = (liningCircle <> outerCircle <> innerCircle <> passenger
 
     r  = stationRadius
 
-    liningCircle = solidCircle (1.0 * r) & color black
+    liningCircle = solidCircle (1.0 * r) & color backgroundColor
     outerCircle  = solidCircle (0.8 * r) & color stationColor
-    innerCircle  = solidCircle (0.5 * r) & color black
+    innerCircle  = solidCircle (0.5 * r) & color backgroundColor
 
 renderPassenger :: Passenger -> Picture
 renderPassenger _ = lining <> passenger
   where
     r = passengerRadius
-    lining    = solidCircle (1.0 * r) & color black
+    lining    = solidCircle (1.0 * r) & color backgroundColor
     passenger = solidCircle (0.8 * r) & color passengerColor
 
 renderStationPassenger :: Passenger -> Int -> Picture
@@ -104,7 +104,7 @@ renderTrainPassengers = mconcat . zipWith renderTrainPassenger coords
 -- | Render train's locomotive.
 renderLocomotive :: Color -> Picture
 renderLocomotive trainColor
-  =   color black (loco trainLength trainWidth)
+  =   color backgroundColor (loco trainLength trainWidth)
   <>  color trainColor (loco trainLength (trainWidth * 0.8))
   where
     loco w h = (polygon (vertices w h) <> front w h <> back w h)

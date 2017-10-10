@@ -40,7 +40,7 @@ main =
   play display bgColor fps initialWorld renderWorld handleWorld updateWorld
   where
     display = InWindow "Tubes" winSize winOffset
-    bgColor = black
+    bgColor = backgroundColor
     fps     = 60
 
     initialWorld = GameState
