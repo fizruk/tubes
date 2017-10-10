@@ -111,8 +111,10 @@ handlePassenger passenger point tube
 updatePassengersAt :: Station -> Train -> TubeLineId -> TubeLineDirection -> Tube -> (Station, Train)
 updatePassengersAt station train lineId dir tube = (newStation, newTrain)
   where
-    newStation = station { stationPassengers = stayingOnStation ++ unboarding }
-    newTrain = train { trainPassengers = stayingOnTrain ++ boarding }
+    newStation = station { stationPassengers = stayingOnStation ++ unboarding ++ drop n boarding }
+    newTrain = train { trainPassengers = stayingOnTrain ++ take n boarding }
+
+    n = trainCapacity - length stayingOnTrain
 
     (unboarding, stayingOnTrain) = stayingLeavingPassengers (trainPassengers train)
     (stayingOnStation, boarding) = stayingLeavingPassengers (stationPassengers station)

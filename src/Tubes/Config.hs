@@ -57,3 +57,8 @@ trainRows = 3
 -- | Number of seats in a single row in a train.
 trainRowSeats :: Int
 trainRowSeats = 2
+
+-- | Total number of seats on a train.
+trainCapacity :: Int
+trainCapacity = trainRows * trainRowSeats
+
