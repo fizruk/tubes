@@ -206,7 +206,7 @@ updateTube dt tube = tube { tubeLines = newLines }
 
 spawnRandomPassengers :: MonadRandom m => Float -> Tube -> m Tube
 spawnRandomPassengers dt tube = do
-  k <- poisson (dt * newPassengerRate)
+  k <- poisson (dt * newPassengerRate (length (tubeStations tube)))
   appEndo (mconcat (replicate k (Endo (>>= spawnRandomPassenger)))) (pure tube)
 
 spawnRandomPassenger :: MonadRandom m => Tube -> m Tube

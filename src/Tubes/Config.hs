@@ -70,6 +70,6 @@ backgroundColor :: Color
 backgroundColor = greyN 0.05
 
 -- | How many passengers enter the system every second on average.
-newPassengerRate :: Float
-newPassengerRate = 1
-
+-- The rate depends on the size of the system (number of stations).
+newPassengerRate :: Int -> Float
+newPassengerRate n = sqrt (fromIntegral n)
