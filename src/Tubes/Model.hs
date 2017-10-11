@@ -2,6 +2,9 @@
 {-# LANGUAGE TupleSections #-}
 module Tubes.Model where
 
+import Control.Monad.Random
+
+import Data.Monoid
 import Data.Function ((&))
 import Data.List (minimumBy, partition, find)
 import Data.Maybe (listToMaybe)
@@ -194,11 +197,42 @@ lineInterchanges tubeLineId tube =
   ]
 
 -- | Update everything in a tube system with a given time interval.
-updateTube :: Float -> Tube -> Tube
+updateTube :: MonadRandom m => Float -> Tube -> m Tube
 updateTube dt tube = tube { tubeLines = newLines }
   & handleEvents events
+  & spawnRandomPassengers dt
   where
     (events, newLines) = sequenceA (zipWith (updateTubeLineTrains dt) [0..] (tubeLines tube))
+
+spawnRandomPassengers :: MonadRandom m => Float -> Tube -> m Tube
+spawnRandomPassengers dt tube = do
+  k <- poisson (dt * newPassengerRate)
+  appEndo (mconcat (replicate k (Endo (>>= spawnRandomPassenger)))) (pure tube)
+
+spawnRandomPassenger :: MonadRandom m => Tube -> m Tube
+spawnRandomPassenger tube = do
+  from <- randomStation tube
+  to   <- randomStation tube
+  return (spawnPassenger from to tube)
+
+randomStation :: MonadRandom m => Tube -> m Point
+randomStation tube = do
+  i <- getRandomR (0, n - 1)
+  return (stationLocation (stations !! i))
+  where
+    stations = tubeStations tube
+    n = length stations
+
+poisson :: MonadRandom m => Float -> m Int
+poisson lambda = go 0 1
+  where
+    l = exp (- lambda)
+    go k p
+      | p > l = do
+          u <- getRandomR (0, 1)
+          go (k + 1) (p * u)
+      | otherwise =
+          pure (k - 1)
 
 handleEvents :: [TrainStopEvent] -> Tube -> Tube
 handleEvents events tube = foldr handleEvent tube events

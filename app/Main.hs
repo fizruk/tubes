@@ -1,14 +1,17 @@
 module Main where
 
+import Control.Monad.Random
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Graphics.Gloss.Interface.Pure.Game
+import System.Random (StdGen, mkStdGen)
 
 import Tubes
 
 data GameState = GameState
   { gameTube   :: Tube
   , gameAction :: Maybe IncompleteAction
+  , gameGen    :: StdGen
   }
 
 startGameAction :: (Float, Float) -> GameState -> GameState
@@ -45,8 +48,9 @@ main =
     fps     = 60
 
     initialWorld = GameState
-      { gameTube = initTube
-      , gameAction = Nothing
+      { gameTube    = initTube
+      , gameAction  = Nothing
+      , gameGen     = mkStdGen 0
       }
 
     renderWorld = renderTube . gameTube
@@ -56,8 +60,9 @@ main =
     handleWorld (EventKey (SpecialKey KeySpace) Down _ _) = newPassenger
     handleWorld _ = id
 
-    -- move a single train along a straight track forwards and backwards
-    updateWorld dt gs = gs { gameTube = updateTube dt (gameTube gs) }
+    updateWorld dt gs = gs { gameTube = newTube, gameGen = newGen }
+      where
+        (newTube, newGen) = runRand (updateTube dt (gameTube gs)) (gameGen gs)
 
     winSize = (800, 450)
     winOffset = (100, 100)

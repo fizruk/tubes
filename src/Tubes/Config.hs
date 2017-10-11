@@ -68,3 +68,8 @@ lineColors = concat $ drop 1 $
 
 backgroundColor :: Color
 backgroundColor = greyN 0.05
+
+-- | How many passengers enter the system every second on average.
+newPassengerRate :: Float
+newPassengerRate = 1
+
