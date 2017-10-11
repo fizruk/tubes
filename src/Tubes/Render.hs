@@ -64,8 +64,10 @@ renderPassenger _ = lining <> passenger
 
 renderStationPassenger :: Passenger -> Int -> Picture
 renderStationPassenger p n = renderPassenger p
-  & translate 0 (stationRadius + 2 * passengerRadius)
-  & rotate (360 * fromIntegral n / fromIntegral stationCapacity)
+  & translate 0 (stationRadius + (2 + k) * passengerRadius)
+  & rotate (360 * (0.4 * k + fromIntegral n) / fromIntegral stationCapacity)
+  where
+    k = fromIntegral (n `div` stationCapacity)
 
 -- | Draw a solid circle of given radius.
 solidCircle :: Float -> Picture
