@@ -7,23 +7,24 @@ import Graphics.Gloss.Interface.Pure.Game
 import Tubes
 
 data GameState = GameState
-  { gameTube        :: Tube
-  , gameStationFrom :: Maybe (Float, Float)
+  { gameTube   :: Tube
+  , gameAction :: Maybe IncompleteAction
   }
 
-{-setStationFrom :: Point -> GameState -> GameState-}
-setStationFrom point gs = gs
-  { gameStationFrom = Just (fromMaybe point (pointToStation point (gameTube gs))) }
+startGameAction :: (Float, Float) -> GameState -> GameState
+startGameAction point gs = gs { gameAction = startAction point (gameTube gs) }
 
-{-constructTube :: Point -> GameState -> GameState-}
-constructTube point gs = gs
-  { gameTube = case gameStationFrom gs of
-      Just from -> addSegment from to (gameTube gs)
-      _ -> gameTube gs
-  , gameStationFrom = Nothing
+completeGameAction :: (Float, Float) -> GameState -> GameState
+completeGameAction point gs = gs
+  { gameTube = newTube
+  , gameAction = Nothing
   }
   where
-    to = fromMaybe point (pointToStation point (gameTube gs))
+    tube = gameTube gs
+    newTube = fromMaybe tube $ do
+      ia <- gameAction gs
+      ca <- completeAction point ia tube
+      return (handleAction ca tube)
 
 newPassenger :: GameState -> GameState
 newPassenger gs
@@ -45,13 +46,13 @@ main =
 
     initialWorld = GameState
       { gameTube = initTube
-      , gameStationFrom = Nothing
+      , gameAction = Nothing
       }
 
     renderWorld = renderTube . gameTube
 
-    handleWorld (EventKey (MouseButton LeftButton) Down _ point) = setStationFrom point
-    handleWorld (EventKey (MouseButton LeftButton) Up _ point) = constructTube point
+    handleWorld (EventKey (MouseButton LeftButton) Down _ point) = startGameAction point
+    handleWorld (EventKey (MouseButton LeftButton) Up _ point) = completeGameAction point
     handleWorld (EventKey (SpecialKey KeySpace) Down _ _) = newPassenger
     handleWorld _ = id
 

@@ -1,8 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 module Tubes.Model where
 
 import Data.Function ((&))
-import Data.List (foldl', minimumBy, partition, find)
+import Data.List (minimumBy, partition, find)
 import Data.Maybe (listToMaybe)
 import Data.Ord (comparing)
 
@@ -49,7 +50,7 @@ type Route = [RouteDirection]
 
 -- | All possible routes from one point to another.
 routes :: Point -> Point -> Tube -> [Route]
-routes from to tube = concatMap (routes' [] from) (stationLines from tube)
+routes from' to tube = concatMap (routes' [] from') (stationLines from' tube)
   where
     routes' :: [TubeLineId] -> Point -> TubeLineId -> [Route]
     routes' visited from lineId
@@ -86,7 +87,7 @@ minimalInterchangeRoute from to tube
 directionsToStation :: Point -> Point -> TubeLine -> [TubeLineDirection]
 directionsToStation from to tubeLine
   = case dedup xs of
-      (x:y:z:_)
+      (x:_:_:_)
         | nearStation x from -> [Forward, Backward]
         | otherwise          -> [Backward, Forward]
       [x, y]
@@ -222,48 +223,49 @@ addTrain tubeLine = case tubeLineSegments tubeLine of
   (segment:_) -> tubeLine { tubeLineTrains = initTrain segment : tubeLineTrains tubeLine }
   _ -> tubeLine
 
--- | 'Station' type relative to some 'TubeLine'.
-data TubeLineStationType
-  = TubeLineStartStation          -- ^ 'Station' is at the beginning of a 'TubeLine'.
-  | TubeLineEndStation            -- ^ 'Station' is at the end of a 'TubeLine'.
-  | TubeLineIntermediateStation   -- ^ 'Station' is somewhere between the ends of a 'TubeLine' (so it can't be continued from here).
-
--- | Find an element satisfying predicate and
--- return its indices from both ends of a list.
---
--- prop> fmap (\(i, j) -> i + j) (doubleIndexOf p xs) == length xs - 1
---
--- >>> doubleIndexOf (== 3) [1..10]
--- Just (2, 7)
--- >>> doubleIndexOf even [1, 3 .. 10]
--- Nothing
-doubleIndexOf :: (a -> Bool) -> [a] -> Maybe (Int, Int)
-doubleIndexOf p = eitherToMaybe . foldl' f (Left (0, 0))
-  where
-    eitherToMaybe (Left _) = Nothing
-    eitherToMaybe (Right x) = Just x
-
-    f (Right (i, j)) _ = Right (i, j + 1)
-    f (Left (i, j)) x
-        | p x       = Right (i, j)
-        | otherwise = Left (i + 1, j)
-
--- | Find out where on the line the station is.
-tubeLineStationType :: Point -> TubeLine -> Maybe TubeLineStationType
-tubeLineStationType station = fmap indicesToType . doubleIndexOf (nearStation station) . tubeLineStations
-  where
-    indicesToType (0, _)  = TubeLineStartStation
-    indicesToType (_, 0)  = TubeLineEndStation
-    indicesToType _       = TubeLineIntermediateStation
-
 -- | If a 'Point' belongs to a 'Station' of a tube system then return it.
 -- Otherwise return 'Nothing'.
 pointToStation :: Point -> Tube -> Maybe Point
 pointToStation point = listToMaybe . filter (nearStation point) . map stationLocation . tubeStations
 
+pointToTubeLineEnd :: Point -> Tube -> [(TubeLineId, TubeLineDirection)]
+pointToTubeLineEnd point tube =
+  [ (tubeLineId, dir)
+  | (tubeLineId, tubeLine) <- zip [0..] (tubeLines tube)
+  , let segments = tubeLineSegments tubeLine
+  , (segment, dir) <- concat
+      [ (,Backward) <$> take 1 segments
+      , (,Forward)  <$> map flipSegment (take 1 (reverse segments))
+      ]
+  , nearSegmentStart point segment
+  ]
+
+flipSegment :: Segment -> Segment
+flipSegment (Segment from to) = Segment to from
+
 -- | Check if a 'Point' is near the 'Station'.
 nearStation :: Point -> Point -> Bool
 nearStation (x, y) (sx, sy) = sqrt ((sx - x)^2 + (sy - y)^2) < stationRadius
+
+nearSegmentStart :: Point -> Segment -> Bool
+nearSegmentStart p (Segment s e) = abs w < trackWidth/2 && l < 0 && l > (-endTrackLength)
+  where
+    n = normalizeV (e - s)
+    w = dotV (p - s) (rotateV (pi/2) n)
+    l = dotV (p - s) n
+
+    dotV (x, y) (u, v) = x * u + y * v
+
+    rotateV r (x, y) =
+      ( x * cos r - y * sin r
+      , x * sin r + y * cos r)
+
+    normalizeV (x, y) = (d*x, d*y)
+      where
+        d = 1 / sqrt( x^2 + y^2 )
+
+nearSegmentEnd :: Point -> Segment -> Bool
+nearSegmentEnd p = nearSegmentStart p . flipSegment
 
 -- | A line with tracks and trains.
 data TubeLine = TubeLine
@@ -306,9 +308,9 @@ data TrainStopEvent = TrainStopEvent
 -- | Update all trains on the line.
 -- Each train goes
 updateTubeLineTrains :: Float -> TubeLineId -> TubeLine -> ([TrainStopEvent], TubeLine)
-updateTubeLineTrains dtime tubeLineId tubeLine = (events, tubeLine { tubeLineTrains = newTrains })
+updateTubeLineTrains dtime tubeLineId tubeLine = (allEvents, tubeLine { tubeLineTrains = newTrains })
   where
-    (events, newTrains) = sequenceA (zipWith (updateTubeLineTrain [] dtime) [0..] (tubeLineTrains tubeLine))
+    (allEvents, newTrains) = sequenceA (zipWith (updateTubeLineTrain [] dtime) [0..] (tubeLineTrains tubeLine))
 
     updateTubeLineTrain events dt i train
       = case moveTrain dt train of
@@ -323,7 +325,7 @@ updateTubeLineTrains dtime tubeLineId tubeLine = (events, tubeLine { tubeLineTra
                   , trainStopTubeLine   = tubeLineId
                   , trainStopDirection  = dir
                   }
-            in updateTubeLineTrain (event : events) leftoverTime i train
+            in updateTubeLineTrain (event : events) leftoverTime i newTrain
                   { trainFrom     = from
                   , trainTo       = to
                   , trainSegment  = segment

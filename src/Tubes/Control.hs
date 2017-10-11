@@ -1,28 +1,8 @@
 module Tubes.Control where
 
-import Data.Function ((&))
-import Data.List (nub)
+import Data.Maybe (fromMaybe)
 
 import Tubes.Model
-
--- | Add a new segment to the tube.
---
--- If @from@ station is the end of some line, it is extended.
---
--- If any station (or both) does not exist, they are created.
-addSegment :: Point -> Point -> Tube -> Tube
-addSegment from to tube
-  | nearStation from to = tube
-  | otherwise = newTube
-      & addStation from
-      & addStation to
-  where
-    newTube = case stationLines from tube of
-      (i:_) -> case tubeLineStationType from (tubeLines tube !! i) of
-        Just TubeLineStartStation -> modifyTubeLine i (prependTubeLineSegment to) tube
-        Just TubeLineEndStation   -> modifyTubeLine i (appendTubeLineSegment to) tube
-        _ -> addTubeLine from to tube
-      _ -> addTubeLine from to tube
 
 -- | Append a new segment to the end of the line.
 appendTubeLineSegment :: Point -> TubeLine -> TubeLine
@@ -47,3 +27,47 @@ prependTubeLineSegment point tubeLine = tubeLine
       { trainFrom = f (trainFrom train)
       , trainTo   = f (trainTo train)
       }
+
+data Missing a = Missing
+
+newtype Present a = Present a
+
+data Action f
+  = StartNewLine Point (f Point)
+  | ContinueLine TubeLineId TubeLineDirection Point (f Point)
+
+type IncompleteAction = Action Missing
+type CompleteAction = Action Present
+
+startAction :: Point -> Tube -> Maybe IncompleteAction
+startAction from tube
+  = case pointToStation from tube of
+      Just s  -> Just (StartNewLine s Missing)
+      Nothing -> case pointToTubeLineEnd from tube of
+        ((tubeLineId, dir):_) -> Just (ContinueLine tubeLineId dir from Missing)
+        _ -> Just (StartNewLine from Missing)
+
+completeAction :: Point -> IncompleteAction -> Tube -> Maybe CompleteAction
+completeAction point action tube
+  = case action of
+      StartNewLine from _
+        | nearStation from to -> Nothing
+        | otherwise -> Just (StartNewLine from (Present to))
+      ContinueLine tubeLineId dir from _
+        | nearStation from to -> Nothing
+        | otherwise -> Just (ContinueLine tubeLineId dir from (Present to))
+  where
+    to = fromMaybe point (pointToStation point tube)
+
+handleAction :: CompleteAction -> Tube -> Tube
+handleAction (StartNewLine from (Present to))
+  = addTubeLine from to
+  . addStation from
+  . addStation to
+handleAction (ContinueLine tubeLineId dir _ (Present to))
+  = continueLine
+  . addStation to
+  where
+    continueLine = case dir of
+      Forward  -> modifyTubeLine tubeLineId (appendTubeLineSegment  to)
+      Backward -> modifyTubeLine tubeLineId (prependTubeLineSegment to)
