@@ -29,16 +29,6 @@ completeGameAction point gs = gs
       ca <- completeAction point ia tube
       return (handleAction ca tube)
 
-newPassenger :: GameState -> GameState
-newPassenger gs
-  | null stations = gs
-  | otherwise = gs { gameTube = spawnPassenger from to tube }
-  where
-    tube = gameTube gs
-    stations = tubeStations tube
-    from = stationLocation (head stations)
-    to   = stationLocation (last stations)
-
 main :: IO ()
 main =
   play display bgColor fps initialWorld renderWorld handleWorld updateWorld
@@ -57,7 +47,6 @@ main =
 
     handleWorld (EventKey (MouseButton LeftButton) Down _ point) = startGameAction point
     handleWorld (EventKey (MouseButton LeftButton) Up _ point) = completeGameAction point
-    handleWorld (EventKey (SpecialKey KeySpace) Down _ _) = newPassenger
     handleWorld _ = id
 
     updateWorld dt gs = gs { gameTube = newTube, gameGen = newGen }
