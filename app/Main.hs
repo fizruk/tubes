@@ -4,7 +4,7 @@ import Control.Monad.Random
 import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Graphics.Gloss.Interface.Pure.Game
-import System.Random (StdGen, mkStdGen)
+import System.Random (StdGen, newStdGen)
 
 import Tubes
 
@@ -12,6 +12,13 @@ data GameState = GameState
   { gameTube   :: Tube
   , gameAction :: Maybe IncompleteAction
   , gameGen    :: StdGen
+  }
+
+initGameState :: StdGen -> GameState
+initGameState g = GameState
+  { gameTube    = initTube
+  , gameAction  = Nothing
+  , gameGen     = g
   }
 
 startGameAction :: (Float, Float) -> GameState -> GameState
@@ -30,18 +37,17 @@ completeGameAction point gs = gs
       return (handleAction ca tube)
 
 main :: IO ()
-main =
-  play display bgColor fps initialWorld renderWorld handleWorld updateWorld
+main = do
+  g <- newStdGen
+  play display bgColor fps (initialWorld g) renderWorld handleWorld updateWorld
   where
     display = InWindow "Tubes" winSize winOffset
     bgColor = backgroundColor
     fps     = 60
 
-    initialWorld = GameState
-      { gameTube    = initTube
-      , gameAction  = Nothing
-      , gameGen     = mkStdGen 0
-      }
+    initialWorld g = (initGameState newGen) { gameTube = newTube }
+      where
+        (newTube, newGen) = runRand (initRandomTube 3) g
 
     renderWorld = renderTube . gameTube
 

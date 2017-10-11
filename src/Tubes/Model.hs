@@ -141,6 +141,9 @@ updatePassengersAt station train lineId dir tube = (newStation, newTrain)
 initTube :: Tube
 initTube = Tube [] []
 
+initRandomTube :: MonadRandom m => Int -> m Tube
+initRandomTube n = appEndo (mconcat (replicate n (Endo (>>= spawnRandomStation)))) (pure initTube)
+
 -- | Initialise a station at a given location.
 initStation :: Point -> Station
 initStation point = Station
@@ -201,13 +204,42 @@ updateTube :: MonadRandom m => Float -> Tube -> m Tube
 updateTube dt tube = tube { tubeLines = newLines }
   & handleEvents events
   & spawnRandomPassengers dt
+  & (>>= spawnRandomStations dt)
   where
     (events, newLines) = sequenceA (zipWith (updateTubeLineTrains dt) [0..] (tubeLines tube))
+
+spawnRandomStations :: MonadRandom m => Float -> Tube -> m Tube
+spawnRandomStations dt tube = do
+  k <- poisson (dt * newStationRate (length (tubeStations tube)))
+  appEndo (mconcat (replicate k (Endo (>>= spawnRandomStation)))) (pure tube)
 
 spawnRandomPassengers :: MonadRandom m => Float -> Tube -> m Tube
 spawnRandomPassengers dt tube = do
   k <- poisson (dt * newPassengerRate (length (tubeStations tube)))
   appEndo (mconcat (replicate k (Endo (>>= spawnRandomPassenger)))) (pure tube)
+
+spawnRandomStation :: MonadRandom m => Tube -> m Tube
+spawnRandomStation tube
+  | length (tubeStations tube) >= cityCapacity = return tube
+  | otherwise = do
+      i <- getRandomR (0, n)
+      j <- getRandomR (-n, 0)
+      s <- getRandomR (0, 2 :: Int)
+
+      dx <- getRandomR (- stationRadius*sqrt(2)/2, stationRadius*sqrt(2)/2)
+      dy <- getRandomR (- stationRadius*sqrt(2)/2, stationRadius*sqrt(2)/2)
+
+      let x = fromIntegral i
+          y = fromIntegral j
+          (px, py) = rotateV (fromIntegral s * 4 * pi / 3) (d * (x + y / 2), d * y * sqrt(3) / 2)
+          point = (px + dx, py + dy)
+
+      case pointToStation (px, py) tube of
+        Nothing -> return (addStation point tube)
+        Just _ -> spawnRandomStation tube
+  where
+    d = stationMinimalSpacing
+    n = floor (cityRadius / d) :: Int
 
 spawnRandomPassenger :: MonadRandom m => Tube -> m Tube
 spawnRandomPassenger tube = do
@@ -279,7 +311,10 @@ flipSegment (Segment from to) = Segment to from
 
 -- | Check if a 'Point' is near the 'Station'.
 nearStation :: Point -> Point -> Bool
-nearStation (x, y) (sx, sy) = sqrt ((sx - x)^2 + (sy - y)^2) < stationRadius
+nearStation = near stationRadius
+
+near :: Float -> Point -> Point -> Bool
+near d (x, y) (u, v) = sqrt ((x - u)^2 + (y - v)^2) < d
 
 nearSegmentStart :: Point -> Segment -> Bool
 nearSegmentStart p (Segment s e) = abs w < trackWidth/2 && l < 0 && l > (-endTrackLength)
@@ -290,13 +325,15 @@ nearSegmentStart p (Segment s e) = abs w < trackWidth/2 && l < 0 && l > (-endTra
 
     dotV (x, y) (u, v) = x * u + y * v
 
-    rotateV r (x, y) =
-      ( x * cos r - y * sin r
-      , x * sin r + y * cos r)
-
     normalizeV (x, y) = (d*x, d*y)
       where
         d = 1 / sqrt( x^2 + y^2 )
+
+rotateV :: Float -> Point -> Point
+rotateV r (x, y) =
+  ( x * cos r - y * sin r
+  , x * sin r + y * cos r)
+
 
 nearSegmentEnd :: Point -> Segment -> Bool
 nearSegmentEnd p = nearSegmentStart p . flipSegment

@@ -1,7 +1,5 @@
 module Tubes.Control where
 
-import Data.Maybe (fromMaybe)
-
 import Tubes.Model
 
 -- | Append a new segment to the end of the line.
@@ -45,19 +43,19 @@ startAction from tube
       Just s  -> Just (StartNewLine s Missing)
       Nothing -> case pointToTubeLineEnd from tube of
         ((tubeLineId, dir):_) -> Just (ContinueLine tubeLineId dir from Missing)
-        _ -> Just (StartNewLine from Missing)
+        _ -> Nothing
 
 completeAction :: Point -> IncompleteAction -> Tube -> Maybe CompleteAction
 completeAction point action tube
-  = case action of
-      StartNewLine from _
-        | nearStation from to -> Nothing
-        | otherwise -> Just (StartNewLine from (Present to))
-      ContinueLine tubeLineId dir from _
-        | nearStation from to -> Nothing
-        | otherwise -> Just (ContinueLine tubeLineId dir from (Present to))
-  where
-    to = fromMaybe point (pointToStation point tube)
+  = case pointToStation point tube of
+      Nothing -> Nothing
+      Just to -> case action of
+        StartNewLine from _
+          | nearStation from to -> Nothing
+          | otherwise -> Just (StartNewLine from (Present to))
+        ContinueLine tubeLineId dir from _
+          | nearStation from to -> Nothing
+          | otherwise -> Just (ContinueLine tubeLineId dir from (Present to))
 
 handleAction :: CompleteAction -> Tube -> Tube
 handleAction (StartNewLine from (Present to))

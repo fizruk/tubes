@@ -73,3 +73,19 @@ backgroundColor = greyN 0.05
 -- The rate depends on the size of the system (number of stations).
 newPassengerRate :: Int -> Float
 newPassengerRate n = sqrt (fromIntegral n)
+
+newStationRate :: Int -> Float
+newStationRate n = 0.2 / sqrt (fromIntegral (max 1 n))
+
+cityRadius :: Float
+cityRadius = 3 * stationMinimalSpacing
+
+-- | Minimal distance between centers of two stations.
+stationMinimalSpacing :: Float
+stationMinimalSpacing = 4 * stationRadius
+
+-- | Maximum number of stations in the city.
+cityCapacity :: Int
+cityCapacity = 1 + 3 * n * (n + 1)
+  where
+    n = floor (cityRadius / stationMinimalSpacing)
