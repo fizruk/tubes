@@ -2,6 +2,12 @@ module Tubes.Config where
 
 import Graphics.Gloss
 
+gameScale :: Float
+gameScale = 30
+
+gameSpeed :: Float
+gameSpeed = 1
+
 -- | Train acceleration (pixels per second squared).
 trainAcceleration :: Float
 trainAcceleration = 1.5 * trainMaxSpeed
@@ -12,7 +18,7 @@ trainMaxSpeed = 5 * trainLength
 
 -- | Train width (in pixels).
 trainWidth :: Float
-trainWidth = 40
+trainWidth = gameScale
 
 -- | Train length (in pixels).
 trainLength :: Float
@@ -72,13 +78,13 @@ backgroundColor = greyN 0.05
 -- | How many passengers enter the system every second on average.
 -- The rate depends on the size of the system (number of stations).
 newPassengerRate :: Int -> Float
-newPassengerRate n = sqrt (fromIntegral n)
+newPassengerRate n = 0.5 * sqrt (fromIntegral n)
 
 newStationRate :: Int -> Float
 newStationRate n = 0.2 / sqrt (fromIntegral (max 1 n))
 
 cityRadius :: Float
-cityRadius = 3 * stationMinimalSpacing
+cityRadius = 4 * stationMinimalSpacing
 
 -- | Minimal distance between centers of two stations.
 stationMinimalSpacing :: Float

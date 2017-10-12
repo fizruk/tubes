@@ -57,7 +57,7 @@ main = do
 
     updateWorld dt gs = gs { gameTube = newTube, gameGen = newGen }
       where
-        (newTube, newGen) = runRand (updateTube dt (gameTube gs)) (gameGen gs)
+        (newTube, newGen) = runRand (updateTube (gameSpeed * dt) (gameTube gs)) (gameGen gs)
 
     winSize = (800, 450)
     winOffset = (100, 100)
