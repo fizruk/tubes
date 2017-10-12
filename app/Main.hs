@@ -9,20 +9,25 @@ import System.Random (StdGen, newStdGen)
 import Tubes
 
 data GameState = GameState
-  { gameTube   :: Tube
-  , gameAction :: Maybe IncompleteAction
-  , gameGen    :: StdGen
+  { gameTube    :: Tube
+  , gameAction  :: Maybe IncompleteAction
+  , gamePointer :: Maybe (Float, Float)
+  , gameGen     :: StdGen
   }
 
 initGameState :: StdGen -> GameState
 initGameState g = GameState
   { gameTube    = initTube
   , gameAction  = Nothing
+  , gamePointer = Nothing
   , gameGen     = g
   }
 
 startGameAction :: (Float, Float) -> GameState -> GameState
 startGameAction point gs = gs { gameAction = startAction point (gameTube gs) }
+
+updateGamePointer :: (Float, Float) -> GameState -> GameState
+updateGamePointer point gs = gs { gamePointer = Just point }
 
 completeGameAction :: (Float, Float) -> GameState -> GameState
 completeGameAction point gs = gs
@@ -49,10 +54,13 @@ main = do
       where
         (newTube, newGen) = runRand (initRandomTube 3) g
 
-    renderWorld = renderTube . gameTube
+    renderWorld gs
+      =  renderPotentialAction (gameAction gs) (gamePointer gs) (gameTube gs)
+      <> renderTube (gameTube gs)
 
     handleWorld (EventKey (MouseButton LeftButton) Down _ point) = startGameAction point
     handleWorld (EventKey (MouseButton LeftButton) Up _ point) = completeGameAction point
+    handleWorld (EventMotion point) = updateGamePointer point
     handleWorld _ = id
 
     updateWorld dt gs = gs { gameTube = newTube, gameGen = newGen }

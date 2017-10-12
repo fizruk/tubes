@@ -294,9 +294,9 @@ addTrain tubeLine = case tubeLineSegments tubeLine of
 pointToStation :: Point -> Tube -> Maybe Point
 pointToStation point = listToMaybe . filter (nearStation point) . map stationLocation . tubeStations
 
-pointToTubeLineEnd :: Point -> Tube -> [(TubeLineId, TubeLineDirection)]
+pointToTubeLineEnd :: Point -> Tube -> [(Point, TubeLineId, TubeLineDirection)]
 pointToTubeLineEnd point tube =
-  [ (tubeLineId, dir)
+  [ (segmentStart segment, tubeLineId, dir)
   | (tubeLineId, tubeLine) <- zip [0..] (tubeLines tube)
   , let segments = tubeLineSegments tubeLine
   , (segment, dir) <- concat
@@ -555,4 +555,5 @@ segmentOrientation s = atan2 (ey - sy) (ex - sx)
   where
     (sx, sy) = segmentStart s
     (ex, ey) = segmentEnd s
+
 

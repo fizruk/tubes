@@ -42,7 +42,7 @@ startAction from tube
   = case pointToStation from tube of
       Just s  -> Just (StartNewLine s Missing)
       Nothing -> case pointToTubeLineEnd from tube of
-        ((tubeLineId, dir):_) -> Just (ContinueLine tubeLineId dir from Missing)
+        ((s, tubeLineId, dir):_) -> Just (ContinueLine tubeLineId dir s Missing)
         _ -> Nothing
 
 completeAction :: Point -> IncompleteAction -> Tube -> Maybe CompleteAction

@@ -6,7 +6,35 @@ import Graphics.Gloss
 import Graphics.Gloss.Data.Vector
 
 import Tubes.Config
+import Tubes.Control
 import Tubes.Model
+
+renderPotentialAction :: Maybe IncompleteAction -> Maybe (Float, Float) -> Tube -> Picture
+renderPotentialAction mia mp tube
+  = case (mia, mp) of
+      (Just ia, Just p) ->
+        case completeAction p ia tube of
+          Nothing -> renderIncompleteAction ia p tube
+          Just ca -> renderCompleteAction ca tube
+      _ -> blank
+
+newLineColor :: Tube -> Color
+newLineColor tube = lineColors !! length (tubeLines tube)
+
+tubeLineColor :: TubeLineId -> Tube -> Color
+tubeLineColor i _ = lineColors !! i
+
+renderIncompleteAction :: IncompleteAction -> (Float, Float) -> Tube -> Picture
+renderIncompleteAction  (StartNewLine from _) to tube
+  = renderPhantomSegment (newLineColor tube) (Segment from to)
+renderIncompleteAction (ContinueLine tubeLineId _ from _) to tube
+  = renderPhantomSegment (tubeLineColor tubeLineId tube) (Segment from to)
+
+renderCompleteAction :: CompleteAction -> Tube -> Picture
+renderCompleteAction  (StartNewLine from (Present to)) tube
+  = renderPhantomSegment (newLineColor tube) (Segment from to)
+renderCompleteAction (ContinueLine tubeLineId _ from (Present to)) tube
+  = renderPhantomSegment (tubeLineColor tubeLineId tube) (Segment from to)
 
 -- | Render the whole tube system.
 renderTube :: Tube -> Picture
@@ -115,6 +143,10 @@ renderLocomotive trainColor
     vertices w h = [ (-w, -h), (-w, h), (w, h), (w, -h) ]
     front    w h = solidCircle h & translate w 0
     back     w h = solidCircle h & translate (-w) 0
+
+-- | Render a phantom (not real yet) segment.
+renderPhantomSegment :: Color -> Segment -> Picture
+renderPhantomSegment c = renderSegment (withAlpha 0.8 c)
 
 -- | Render tracks for a segment.
 renderSegment :: Color -> Segment -> Picture
