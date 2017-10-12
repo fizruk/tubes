@@ -6,11 +6,15 @@ import Graphics.Gloss
 import Graphics.Gloss.Data.Vector
 
 import Tubes.Config
-import Tubes.Control
 import Tubes.Model
 
-renderPotentialAction :: Maybe IncompleteAction -> Maybe (Float, Float) -> Tube -> Picture
-renderPotentialAction mia mp tube
+renderUniverse :: Universe -> Picture
+renderUniverse u
+  =  renderPotentialAction (universePlayer u) (universeTube u)
+  <> renderTube (universeTube u)
+
+renderPotentialAction :: Player -> Tube -> Picture
+renderPotentialAction (Player mia mp) tube
   = case (mia, mp) of
       (Just ia, Just p) ->
         case completeAction p ia tube of
