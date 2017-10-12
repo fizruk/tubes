@@ -2,6 +2,8 @@ module Tubes.Model.Universe where
 
 import Control.Monad.Random (runRand)
 import Data.Maybe (fromMaybe)
+import Data.Map (Map)
+import qualified Data.Map as Map
 import System.Random (StdGen, newStdGen)
 
 import Tubes.Config
@@ -16,9 +18,11 @@ updateUniverse dt u = u
   where
     (newTube, newGen) = runRand (updateTube (gameSpeed * dt) (universeTube u)) (universeGen u)
 
+type PlayerId = String
+
 data Universe = Universe
   { universeTube    :: Tube
-  , universePlayer  :: Player
+  , universePlayers :: Map PlayerId Player
   , universeGen     :: StdGen
   }
 
@@ -36,7 +40,7 @@ initPlayer = Player
 initRandomUniverse :: Int -> StdGen -> Universe
 initRandomUniverse n g = Universe
   { universeTube    = tube
-  , universePlayer  = initPlayer
+  , universePlayers = Map.empty
   , universeGen     = g' }
   where
     (tube, g') = runRand (initRandomTube n) g
@@ -46,26 +50,30 @@ newRandomUniverse n = do
   g <- newStdGen
   return (initRandomUniverse n g)
 
-updatePlayer :: (Player -> Player) -> Universe -> Universe
-updatePlayer f u = u { universePlayer = f (universePlayer u) }
+addPlayer :: PlayerId -> Universe -> Universe
+addPlayer playerId u = u { universePlayers = Map.insert playerId initPlayer (universePlayers u) }
 
-startPlayerAction :: Point -> Universe -> Universe
-startPlayerAction point u = flip updatePlayer u $ \player ->
+updatePlayer :: PlayerId -> (Player -> Player) -> Universe -> Universe
+updatePlayer playerId f u = u { universePlayers = Map.adjust f playerId (universePlayers u) }
+
+startPlayerAction :: PlayerId -> Point -> Universe -> Universe
+startPlayerAction playerId point u = flip (updatePlayer playerId) u $ \player ->
   player { playerAction = startAction point (universeTube u) }
 
-setPlayerPointer :: Point -> Universe -> Universe
-setPlayerPointer point u = flip updatePlayer u $ \player ->
+setPlayerPointer :: PlayerId -> Point -> Universe -> Universe
+setPlayerPointer playerId point u = flip (updatePlayer playerId) u $ \player ->
   player { playerPointer = Just point }
 
-completePlayerAction :: Point -> Universe -> Universe
-completePlayerAction point u = u
+completePlayerAction :: PlayerId -> Point -> Universe -> Universe
+completePlayerAction playerId point u = u
   { universeTube = newTube
-  , universePlayer = (universePlayer u) { playerAction = Nothing }
+  , universePlayers = Map.adjust (\player -> player { playerAction = Nothing}) playerId (universePlayers u)
   }
   where
     tube = universeTube u
     newTube = fromMaybe tube $ do
-      ia <- playerAction (universePlayer u)
+      player <- Map.lookup playerId (universePlayers u)
+      ia <- playerAction player
       ca <- completeAction point ia tube
       return (handleAction ca tube)
 

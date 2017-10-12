@@ -10,7 +10,7 @@ import Tubes.Model
 
 renderUniverse :: Universe -> Picture
 renderUniverse u
-  =  renderPotentialAction (universePlayer u) (universeTube u)
+  =  foldMap (flip renderPotentialAction (universeTube u)) (universePlayers u)
   <> renderTube (universeTube u)
 
 renderPotentialAction :: Player -> Tube -> Picture

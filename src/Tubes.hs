@@ -16,8 +16,8 @@ import Graphics.Gloss.Interface.Pure.Game
 
 run :: IO ()
 run = do
-  universe <- newRandomUniverse 3
-  play display bgColor fps universe renderUniverse handleUniverse updateUniverse
+  universe <- addPlayer "Nick" <$> newRandomUniverse 3
+  play display bgColor fps universe renderUniverse (handleUniverse "Nick") updateUniverse
   where
     display = InWindow "Tubes" winSize winOffset
     bgColor = backgroundColor
