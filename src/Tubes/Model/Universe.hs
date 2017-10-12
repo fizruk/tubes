@@ -1,5 +1,6 @@
 module Tubes.Model.Universe where
 
+import Control.Concurrent.STM (TVar, atomically, modifyTVar)
 import Control.Monad.Random (runRand)
 import Data.Maybe (fromMaybe)
 import Data.Map (Map)
@@ -9,6 +10,11 @@ import System.Random (StdGen, newStdGen)
 import Tubes.Config
 import Tubes.Model.Action
 import Tubes.Model.Tube
+
+updateUniverseIO :: Float -> TVar Universe -> IO (TVar Universe)
+updateUniverseIO dt w = do
+  atomically $ modifyTVar w (updateUniverse dt)
+  return w
 
 updateUniverse :: Float -> Universe -> Universe
 updateUniverse dt u = u
@@ -77,3 +83,5 @@ completePlayerAction playerId point u = u
       ca <- completeAction point ia tube
       return (handleAction ca tube)
 
+handlePlayerAction :: PlayerId -> CompleteAction -> Universe -> Universe
+handlePlayerAction _playerId action u = u { universeTube = handleAction action (universeTube u) }

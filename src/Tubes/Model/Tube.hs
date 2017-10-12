@@ -309,6 +309,12 @@ pointToTubeLineEnd point tube =
 flipSegment :: Segment -> Segment
 flipSegment (Segment from to) = Segment to from
 
+findSegments :: Point -> Point -> Tube -> [Segment]
+findSegments from to tube = filter f segments
+  where
+    f (Segment s e) = nearStation s from && nearStation e to
+    segments = concatMap tubeLineSegments (tubeLines tube)
+
 -- | Check if a 'Point' is near the 'Station'.
 nearStation :: Point -> Point -> Bool
 nearStation = near stationRadius

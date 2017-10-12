@@ -6,7 +6,7 @@ gameScale :: Float
 gameScale = 30
 
 gameSpeed :: Float
-gameSpeed = 1
+gameSpeed = 3
 
 -- | Train acceleration (pixels per second squared).
 trainAcceleration :: Float

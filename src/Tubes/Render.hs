@@ -1,5 +1,6 @@
 module Tubes.Render where
 
+import Control.Concurrent.STM (TVar, readTVarIO)
 import Data.Function ((&))
 import Data.Monoid
 import Graphics.Gloss
@@ -7,6 +8,9 @@ import Graphics.Gloss.Data.Vector
 
 import Tubes.Config
 import Tubes.Model
+
+renderUniverseIO :: TVar Universe -> IO Picture
+renderUniverseIO = fmap renderUniverse . readTVarIO
 
 renderUniverse :: Universe -> Picture
 renderUniverse u

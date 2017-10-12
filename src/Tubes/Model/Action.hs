@@ -35,12 +35,16 @@ completeAction point action tube
 
 handleAction :: CompleteAction -> Tube -> Tube
 handleAction (StartNewLine from (Present to))
-  = addTubeLine from to
-  . addStation from
-  . addStation to
-handleAction (ContinueLine tubeLineId dir _ (Present to))
-  = continueLine
-  . addStation to
+  | nearStation from to = id
+  | otherwise
+    = addTubeLine from to
+    . addStation from
+    . addStation to
+handleAction (ContinueLine tubeLineId dir from (Present to))
+  | nearStation from to = id
+  | otherwise
+    = continueLine
+    . addStation to
   where
     continueLine = case dir of
       Forward  -> modifyTubeLine tubeLineId (appendTubeLineSegment  to)

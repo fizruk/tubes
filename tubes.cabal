@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:
     Tubes
+    Tubes.Bot
     Tubes.Config
     Tubes.Control
     Tubes.Model
@@ -29,6 +30,7 @@ library
                      , gloss
                      , MonadRandom
                      , random
+                     , stm
   default-language:    Haskell2010
   ghc-options:         -Wall -fno-warn-type-defaults
 
