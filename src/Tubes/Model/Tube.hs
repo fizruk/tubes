@@ -1,8 +1,13 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 module Tubes.Model.Tube where
 
 import Control.Monad.Random
+
+import Data.Binary (Binary)
+import GHC.Generics (Generic)
 
 import Data.Monoid
 import Data.Function ((&))
@@ -24,30 +29,30 @@ type TubeLineId = Int
 -- | A passenger is a user of a tube system.
 data Passenger = Passenger
   { passengerDestination  :: Point  -- ^ Where is this passenger going.
-  } deriving (Show)
+  } deriving (Show, Generic, Binary)
 
 -- | A station.
 data Station = Station
   { stationLocation       :: Point        -- ^ Location of the station.
   , stationPassengers     :: [Passenger]  -- ^ Passengers waiting for a train on this station.
-  } deriving (Show)
+  } deriving (Show, Generic, Binary)
 
 -- | Tube system consisting of multiple lines and stations.
 data Tube = Tube
   { tubeLines     :: [TubeLine]   -- ^ Lines.
   , tubeStations  :: [Station]    -- ^ Stations.
-  }
+  } deriving (Generic, Binary)
 
 data TubeLineDirection
   = Forward
   | Backward
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, Binary)
 
 data RouteDirection = RouteDirection
   { routeTubeLineId :: TubeLineId
   , routeDirection  :: TubeLineDirection
   , routeTo         :: Point
-  } deriving (Show)
+  } deriving (Show, Generic, Binary)
 
 type Route = [RouteDirection]
 
@@ -348,7 +353,7 @@ nearSegmentEnd p = nearSegmentStart p . flipSegment
 data TubeLine = TubeLine
   { tubeLineSegments  :: [Segment]    -- ^ Segments of which a line consists.
   , tubeLineTrains    :: [Train]      -- ^ Trains on the line.
-  }
+  } deriving (Generic, Binary)
 
 -- | Station index on a tube line.
 type StationIndex = Int
@@ -429,7 +434,7 @@ updateTubeLineTrains dtime tubeLineId tubeLine = (allEvents, tubeLine { tubeLine
 data Segment = Segment
   { segmentStart  :: Point    -- ^ Segment starting point.
   , segmentEnd    :: Point    -- ^ Segment end point.
-  }
+  } deriving (Generic, Binary)
 
 -- | Length of a segment.
 segmentLength :: Segment -> Float
@@ -450,7 +455,7 @@ data Train = Train
   , trainFrom         :: StationIndex -- ^ Station the train departed from recently.
   , trainTo           :: StationIndex -- ^ Station the train is headed to.
   , trainPassengers   :: [Passenger]  -- ^ A list of passengers on board of a train.
-  }
+  } deriving (Generic, Binary)
 
 -- | Compute train location on a linear track
 -- of given length at a given time since start.

@@ -1,17 +1,30 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 module Tubes.Model.Action where
 
+import Data.Binary (Binary)
+import GHC.Generics (Generic)
+
 import Tubes.Model.Tube
-
-data Missing a = Missing
-
-newtype Present a = Present a
 
 data Action f
   = StartNewLine Point (f Point)
   | ContinueLine TubeLineId TubeLineDirection Point (f Point)
+  deriving (Generic)
+
+data Missing a = Missing
+  deriving (Generic, Binary)
+
+newtype Present a = Present a
+  deriving (Generic, Binary)
 
 type IncompleteAction = Action Missing
 type CompleteAction = Action Present
+
+instance Binary IncompleteAction
+instance Binary CompleteAction
 
 startAction :: Point -> Tube -> Maybe IncompleteAction
 startAction from tube
@@ -33,14 +46,14 @@ completeAction point action tube
           | nearStation from to -> Nothing
           | otherwise -> Just (ContinueLine tubeLineId dir from (Present to))
 
-handleAction :: CompleteAction -> Tube -> Tube
-handleAction (StartNewLine from (Present to))
+applyCompleteAction :: CompleteAction -> Tube -> Tube
+applyCompleteAction (StartNewLine from (Present to))
   | nearStation from to = id
   | otherwise
     = addTubeLine from to
     . addStation from
     . addStation to
-handleAction (ContinueLine tubeLineId dir from (Present to))
+applyCompleteAction (ContinueLine tubeLineId dir from (Present to))
   | nearStation from to = id
   | otherwise
     = continueLine
@@ -49,4 +62,3 @@ handleAction (ContinueLine tubeLineId dir from (Present to))
     continueLine = case dir of
       Forward  -> modifyTubeLine tubeLineId (appendTubeLineSegment  to)
       Backward -> modifyTubeLine tubeLineId (prependTubeLineSegment to)
-

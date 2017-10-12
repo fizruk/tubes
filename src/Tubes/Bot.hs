@@ -32,7 +32,7 @@ spawnBot botId bot w = do
     atomically $ do
       u <- readTVar w
       case bot botId u of
-        Just action -> writeTVar w (handlePlayerAction botId action u)
+        Just action -> writeTVar w (applyPlayerCompleteAction botId action u)
         Nothing -> return ()
   where
     sec = 10^6  -- one second in milliseconds
