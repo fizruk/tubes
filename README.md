@@ -4,6 +4,16 @@ A collaborative game about metro construction.
 
 ![Tubes demo.](images/tubes_short_demo.gif)
 
+## Haskell eXchange 2017
+
+This project has been demonstrated at Haskell eXchange 2017 in a [«Multiplayer Game from Scratch»][haskellx-talk-skillscast] talk.
+
+The slides for the talk are available online ([PDF][haskellx-talk-pdf], [Keynote][haskellx-talk-keynote]).
+
+[haskellx-talk-skillscast]: https://skillsmatter.com/skillscasts/10848-multiplayer-game-from-scratch
+[haskellx-talk-pdf]:        https://fizruk.github.io/tubes/talk/haskelx-2017-multiplayer-game-from-scratch.pdf
+[haskellx-talk-keynote]:    https://fizruk.github.io/tubes/talk/haskelx-2017-multiplayer-game-from-scratch.key
+
 ## Setup & Build
 
 This project can be built using [Stack](https://docs.haskellstack.org).
