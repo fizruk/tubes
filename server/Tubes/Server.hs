@@ -39,8 +39,8 @@ newConfig = do
           <$> newTVar universe
           <*> newTVar Map.empty
           <*> newTVar (map show [1..])
-  spawnBot "Bot 1" newLineBot     (configUniverse cfg)
-  spawnBot "Bot 2" extendLineBot  (configUniverse cfg)
+  -- spawnBot "Bot 1" newLineBot     (configUniverse cfg)
+  -- spawnBot "Bot 2" extendLineBot  (configUniverse cfg)
   return cfg
 
 -- | An API for the Game of Tubes server.
